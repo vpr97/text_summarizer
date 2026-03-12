@@ -6,7 +6,7 @@ from app.summarizer import summarize_text
 
 app = FastAPI(title="Text Summarizer API", version="1.0")
 
-# FIX #2: Streamlit (8501) → FastAPI (8000) is cross-origin; CORS is required
+# Streamlit (8501) → FastAPI (8000) is cross-origin; CORS is required
 
 app.add_middleware(
     CORSMiddleware,

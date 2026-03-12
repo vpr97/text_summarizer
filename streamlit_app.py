@@ -1,13 +1,13 @@
 import streamlit as st
 import requests
-import os  # FIX #7
+import os 
 
 
 st.set_page_config(page_title="Text Summarizer", page_icon="📝", layout="wide")
 st.title("📝 AI Text Summarizer")
 st.markdown("Paste any long text and get a concise AI summary.")
 
-# FIX #7: reads API_URL from environment so Docker/AWS can override it
+#reads API_URL from environment so Docker/AWS can override it
 
 API_URL = os.getenv("API_URL", "http://localhost:8000") + "/summarize"
 
@@ -19,7 +19,7 @@ col1, col2 = st.columns(2)
 max_len = col1.slider("Max Summary Length", 50, 300, 130)
 min_len = col2.slider("Min Summary Length", 10, 100, 30)
 
-# FIX #4: catch slider conflict before sending to API
+# catch slider conflict before sending to API
 
 if min_len >= max_len:
 

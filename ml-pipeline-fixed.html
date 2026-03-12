@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text Summarizer — Fixed & Corrected</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+  :root {
+    --bg: #0a0a0f; --surface: #111118; --border: #1e1e2e;
+    --accent: #7c3aed; --accent2: #06b6d4; --accent3: #f59e0b;
+    --text: #e2e8f0; --muted: #64748b; --code-bg: #0d0d14;
+    --green: #10b981; --red: #ef4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; line-height: 1.6; }
+  header {
+    background: linear-gradient(135deg, #0a0a0f 0%, #1a0a2e 50%, #0a1a2e 100%);
+    border-bottom: 1px solid var(--border); padding: 50px 40px 40px; position: relative; overflow: hidden;
+  }
+  header::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 20% 50%, rgba(124,58,237,0.15) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.1) 0%, transparent 50%);
+  }
+  .header-inner { max-width: 920px; margin: 0 auto; position: relative; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4);
+    color: #fca5a5; padding: 4px 14px; border-radius: 20px;
+    font-size: 12px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.1em; margin-bottom: 20px;
+  }
+  h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800; line-height: 1.1; margin-bottom: 16px; }
+  h1 span { background: linear-gradient(135deg, #7c3aed, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { color: var(--muted); font-size: 1rem; max-width: 600px; }
+
+  /* BUG SUMMARY TABLE */
+  .bug-table { max-width: 920px; margin: 32px auto 0; background: rgba(239,68,68,0.05); border: 1px solid rgba(239,68,68,0.2); border-radius: 12px; overflow: hidden; }
+  .bug-table-header { background: rgba(239,68,68,0.1); padding: 14px 20px; font-size: 13px; font-family: 'JetBrains Mono', monospace; color: #fca5a5; letter-spacing: 0.1em; border-bottom: 1px solid rgba(239,68,68,0.2); }
+  .bug-row { display: flex; align-items: flex-start; gap: 14px; padding: 12px 20px; border-bottom: 1px solid rgba(239,68,68,0.1); font-size: 13px; }
+  .bug-row:last-child { border-bottom: none; }
+  .bug-num { background: rgba(239,68,68,0.2); color: #fca5a5; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 11px; flex-shrink: 0; margin-top: 1px; }
+  .bug-desc { color: #94a3b8; flex: 1; }
+  .bug-desc strong { color: #f87171; }
+  .bug-fix { color: #6ee7b7; font-size: 12px; font-family: 'JetBrains Mono', monospace; margin-top: 3px; }
+
+  .container { max-width: 920px; margin: 0 auto; padding: 40px 40px 80px; }
+  .section-label { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; margin: 40px 0 16px; }
+
+  .file-block { margin-bottom: 32px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .file-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+  .file-name { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--accent2); font-weight: 700; }
+  .file-lang { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--muted); }
+  .fix-badges { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 20px; background: rgba(16,185,129,0.04); border-bottom: 1px solid rgba(16,185,129,0.1); }
+  .fix-badge { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); color: #6ee7b7; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+  pre { padding: 22px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.8; color: #cdd6f4; }
+  .cm { color: #6c7086; } .kw { color: #cba6f7; } .fn { color: #89b4fa; }
+  .st { color: #a6e3a1; } .nm { color: #fab387; } .tp { color: #f38ba8; }
+  .fix-line { background: rgba(16,185,129,0.08); display: block; margin: 0 -22px; padding: 0 22px; border-left: 3px solid #10b981; }
+  .info-box { border-radius: 8px; padding: 14px 18px; margin: 16px 0; display: flex; gap: 12px; align-items: flex-start; font-size: 13.5px; }
+  .info-box.tip { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); color: #6ee7b7; }
+  .info-box.warn { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); color: #fcd34d; }
+  .info-box.note { background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.2); color: #67e8f9; }
+  p { margin-bottom: 12px; color: #94a3b8; font-size: 14px; }
+  code { font-family: 'JetBrains Mono', monospace; background: rgba(255,255,255,0.08); padding: 2px 7px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="badge">🐛 10 Bugs Found & Fixed</div>
+    <h1>Text Summarizer<br><span>Corrected Codebase</span></h1>
+    <p class="subtitle">All files reviewed. Every bug identified, explained, and patched. Use these versions.</p>
+  </div>
+
+  <div class="bug-table">
+    <div class="bug-table-header">🔍 BUGS FOUND — ALL FILES REVIEWED</div>
+    <div class="bug-row"><div class="bug-num">1</div><div class="bug-desc"><strong>Missing app/__init__.py</strong> — <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;">from app.summarizer import</code> raises <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;">ModuleNotFoundError</code> without this file<div class="bug-fix">→ create empty app/__init__.py</div></div></div>
+    <div class="bug-row"><div class="bug-num">2</div><div class="bug-desc"><strong>No CORS middleware</strong> — Streamlit (port 8501) calling FastAPI (port 8000) is cross-origin; browser/server blocks it<div class="bug-fix">→ add CORSMiddleware to FastAPI app</div></div></div>
+    <div class="bug-row"><div class="bug-num">3</div><div class="bug-desc"><strong>No truncation=True in pipeline</strong> — BART has a 1024 token limit; long inputs crash with <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;">IndexError</code><div class="bug-fix">→ add truncation=True to summarizer() call</div></div></div>
+    <div class="bug-row"><div class="bug-num">4</div><div class="bug-desc"><strong>No min/max length validation</strong> — if min_length >= max_length, HuggingFace throws a cryptic error<div class="bug-fix">→ add validator in Pydantic model + check in summarize_text()</div></div></div>
+    <div class="bug-row"><div class="bug-num">5</div><div class="bug-desc"><strong>Dockerfile COPY/chmod order wrong</strong> — <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;">chmod start.sh</code> ran before <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;">COPY start.sh</code>; Docker build fails<div class="bug-fix">→ move COPY before RUN chmod in Dockerfile</div></div></div>
+    <div class="bug-row"><div class="bug-num">6</div><div class="bug-desc"><strong>No request timeout in Streamlit</strong> — first model load takes 60–90s; default timeout causes silent crash<div class="bug-fix">→ add timeout=120 to requests.post()</div></div></div>
+    <div class="bug-row"><div class="bug-num">7</div><div class="bug-desc"><strong>Hardcoded API_URL</strong> — <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px;">localhost:8000</code> breaks inside Docker and on AWS<div class="bug-fix">→ read from os.getenv("API_URL", "http://localhost:8000")</div></div></div>
+    <div class="bug-row"><div class="bug-num">8</div><div class="bug-desc"><strong>uvicorn missing [standard] extras</strong> — without it, websocket/reload support is absent<div class="bug-fix">→ uvicorn[standard]==0.29.0 in requirements.txt</div></div></div>
+    <div class="bug-row"><div class="bug-num">9</div><div class="bug-desc"><strong>start.sh didn't wait for FastAPI</strong> — Streamlit starts immediately; first request always fails<div class="bug-fix">→ add curl health-check loop before launching Streamlit</div></div></div>
+    <div class="bug-row"><div class="bug-num">10</div><div class="bug-desc"><strong>Missing --server.headless true</strong> — Streamlit prompts for email interactively in Docker; container hangs forever<div class="bug-fix">→ add --server.headless true to streamlit run command</div></div></div>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="section-label">── Corrected Files ──</div>
+
+  <!-- FILE: app/__init__.py -->
+  <div class="file-block">
+    <div class="file-header"><span class="file-name">app/__init__.py</span><span class="file-lang">PYTHON</span></div>
+    <div class="fix-badges"><span class="fix-badge">🐛 Fix #1 — NEW FILE (was missing)</span></div>
+    <pre><span class="cm"># This file is required to make `app` a Python package.
+# Without it, `from app.summarizer import ...` will raise ModuleNotFoundError.
+# Leave it empty — its presence is all that matters.</span></pre>
+  </div>
+
+  <!-- FILE: requirements.txt -->
+  <div class="file-block">
+    <div class="file-header"><span class="file-name">requirements.txt</span><span class="file-lang">TEXT</span></div>
+    <div class="fix-badges"><span class="fix-badge">🐛 Fix #8 — uvicorn[standard]</span></div>
+    <pre>fastapi==0.111.0
+<span class="fix-line">uvicorn[standard]==0.29.0</span>
+transformers==4.40.0
+torch==2.2.2
+sentencepiece==0.2.0
+streamlit==1.35.0
+requests==2.31.0
+pydantic==2.7.1</pre>
+  </div>
+
+  <!-- FILE: app/summarizer.py -->
+  <div class="file-block">
+    <div class="file-header"><span class="file-name">app/summarizer.py</span><span class="file-lang">PYTHON</span></div>
+    <div class="fix-badges">
+      <span class="fix-badge">🐛 Fix #3 — truncation=True</span>
+      <span class="fix-badge">🐛 Fix #4 — min/max validation</span>
+    </div>
+    <pre><span class="kw">from</span> transformers <span class="kw">import</span> pipeline
+
+<span class="cm"># Load once at startup — this takes 30-90s on first run</span>
+summarizer = <span class="fn">pipeline</span>(
+    <span class="st">"summarization"</span>,
+    model=<span class="st">"facebook/bart-large-cnn"</span>
+)
+
+<span class="cm"># BART's hard token limit</span>
+MAX_INPUT_TOKENS = <span class="nm">1024</span>
+
+<span class="kw">def</span> <span class="fn">summarize_text</span>(text: <span class="tp">str</span>, max_length: <span class="tp">int</span> = <span class="nm">130</span>, min_length: <span class="tp">int</span> = <span class="nm">30</span>) -> <span class="tp">str</span>:
+    <span class="st">"""Summarize input text using BART model."""</span>
+    <span class="kw">if</span> <span class="fn">len</span>(text.split()) < <span class="nm">50</span>:
+        <span class="kw">raise</span> <span class="tp">ValueError</span>(<span class="st">"Text too short. Please provide at least 50 words."</span>)
+
+<span class="fix-line">    <span class="cm"># FIX #4: prevent HuggingFace crash when min >= max</span></span>
+<span class="fix-line">    <span class="kw">if</span> min_length >= max_length:</span>
+<span class="fix-line">        <span class="kw">raise</span> <span class="tp">ValueError</span>(<span class="st">"min_length must be less than max_length."</span>)</span>
+
+<span class="fix-line">    <span class="cm"># FIX #3: truncate input to BART's 1024 token limit</span></span>
+<span class="fix-line">    words = text.split()</span>
+<span class="fix-line">    <span class="kw">if</span> <span class="fn">len</span>(words) > MAX_INPUT_TOKENS:</span>
+<span class="fix-line">        text = <span class="st">" "</span>.join(words[:MAX_INPUT_TOKENS])</span>
+
+    result = <span class="fn">summarizer</span>(
+        text,
+        max_length=max_length,
+        min_length=min_length,
+        do_sample=<span class="nm">False</span>,
+<span class="fix-line">        truncation=<span class="nm">True</span>   <span class="cm"># FIX #3: explicitly tell BART to truncate</span></span>
+    )
+    <span class="kw">return</span> result[<span class="nm">0</span>][<span class="st">"summary_text"</span>]</pre>
+  </div>
+
+  <!-- FILE: app/main.py -->
+  <div class="file-block">
+    <div class="file-header"><span class="file-name">app/main.py</span><span class="file-lang">PYTHON</span></div>
+    <div class="fix-badges">
+      <span class="fix-badge">🐛 Fix #2 — CORS middleware</span>
+      <span class="fix-badge">🐛 Fix #4 — Pydantic validators</span>
+    </div>
+    <pre><span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI, HTTPException
+<span class="fix-line"><span class="kw">from</span> fastapi.middleware.cors <span class="kw">import</span> CORSMiddleware  <span class="cm"># FIX #2</span></span>
+<span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel, validator
+<span class="kw">from</span> app.summarizer <span class="kw">import</span> summarize_text
+
+app = <span class="fn">FastAPI</span>(title=<span class="st">"Text Summarizer API"</span>, version=<span class="st">"1.0"</span>)
+
+<span class="fix-line"><span class="cm"># FIX #2: Streamlit (8501) → FastAPI (8000) is cross-origin; CORS is required</span></span>
+<span class="fix-line">app.<span class="fn">add_middleware</span>(</span>
+<span class="fix-line">    CORSMiddleware,</span>
+<span class="fix-line">    allow_origins=[<span class="st">"*"</span>],</span>
+<span class="fix-line">    allow_methods=[<span class="st">"*"</span>],</span>
+<span class="fix-line">    allow_headers=[<span class="st">"*"</span>],</span>
+<span class="fix-line">)</span>
+
+<span class="kw">class</span> <span class="tp">SummarizeRequest</span>(BaseModel):
+    text: <span class="tp">str</span>
+    max_length: <span class="tp">int</span> = <span class="nm">130</span>
+    min_length: <span class="tp">int</span> = <span class="nm">30</span>
+
+<span class="fix-line">    <span class="cm"># FIX #4: validate before the model even runs</span></span>
+<span class="fix-line">    <span class="nm">@validator</span>(<span class="st">"text"</span>)</span>
+<span class="fix-line">    <span class="kw">def</span> <span class="fn">text_not_empty</span>(cls, v):</span>
+<span class="fix-line">        <span class="kw">if not</span> v.strip(): <span class="kw">raise</span> <span class="tp">ValueError</span>(<span class="st">"Text cannot be empty."</span>)</span>
+<span class="fix-line">        <span class="kw">return</span> v</span>
+<span class="fix-line"></span>
+<span class="fix-line">    <span class="nm">@validator</span>(<span class="st">"min_length"</span>)</span>
+<span class="fix-line">    <span class="kw">def</span> <span class="fn">min_lt_max</span>(cls, v, values):</span>
+<span class="fix-line">        <span class="kw">if</span> <span class="st">"max_length"</span> <span class="kw">in</span> values <span class="kw">and</span> v >= values[<span class="st">"max_length"</span>]:</span>
+<span class="fix-line">            <span class="kw">raise</span> <span class="tp">ValueError</span>(<span class="st">"min_length must be less than max_length."</span>)</span>
+<span class="fix-line">        <span class="kw">return</span> v</span>
+
+<span class="kw">class</span> <span class="tp">SummarizeResponse</span>(BaseModel):
+    summary: <span class="tp">str</span>
+
+<span class="nm">@app</span>.get(<span class="st">"/"</span>)
+<span class="kw">def</span> <span class="fn">health_check</span>():
+    <span class="kw">return</span> {<span class="st">"status"</span>: <span class="st">"running"</span>}
+
+<span class="nm">@app</span>.post(<span class="st">"/summarize"</span>, response_model=<span class="tp">SummarizeResponse</span>)
+<span class="kw">def</span> <span class="fn">summarize</span>(request: <span class="tp">SummarizeRequest</span>):
+    <span class="kw">try</span>:
+        summary = <span class="fn">summarize_text</span>(request.text, request.max_length, request.min_length)
+        <span class="kw">return</span> <span class="tp">SummarizeResponse</span>(summary=summary)
+    <span class="kw">except</span> <span class="tp">ValueError</span> <span class="kw">as</span> e:
+        <span class="kw">raise</span> <span class="fn">HTTPException</span>(status_code=<span class="nm">400</span>, detail=<span class="fn">str</span>(e))
+    <span class="kw">except</span> <span class="tp">Exception</span> <span class="kw">as</span> e:
+        <span class="kw">raise</span> <span class="fn">HTTPException</span>(status_code=<span class="nm">500</span>, detail=<span class="fn">f</span><span class="st">"Model error: {str(e)}"</span>)</pre>
+  </div>
+
+  <!-- FILE: streamlit_app.py -->
+  <div class="file-block">
+    <div class="file-header"><span class="file-name">streamlit_app.py</span><span class="file-lang">PYTHON</span></div>
+    <div class="fix-badges">
+      <span class="fix-badge">🐛 Fix #6 — timeout=120</span>
+      <span class="fix-badge">🐛 Fix #7 — env var API_URL</span>
+    </div>
+    <pre><span class="kw">import</span> streamlit <span class="kw">as</span> st
+<span class="kw">import</span> requests
+<span class="fix-line"><span class="kw">import</span> os  <span class="cm"># FIX #7</span></span>
+
+st.<span class="fn">set_page_config</span>(page_title=<span class="st">"Text Summarizer"</span>, page_icon=<span class="st">"📝"</span>, layout=<span class="st">"wide"</span>)
+st.<span class="fn">title</span>(<span class="st">"📝 AI Text Summarizer"</span>)
+st.<span class="fn">markdown</span>(<span class="st">"Paste any long text and get a concise AI summary."</span>)
+
+<span class="fix-line"><span class="cm"># FIX #7: reads API_URL from environment so Docker/AWS can override it</span></span>
+<span class="fix-line">API_URL = os.<span class="fn">getenv</span>(<span class="st">"API_URL"</span>, <span class="st">"http://localhost:8000"</span>) + <span class="st">"/summarize"</span></span>
+
+text_input = st.<span class="fn">text_area</span>(<span class="st">"Input Text"</span>, height=<span class="nm">250</span>,
+    placeholder=<span class="st">"Paste a long article here (minimum 50 words)..."</span>)
+
+col1, col2 = st.<span class="fn">columns</span>(<span class="nm">2</span>)
+max_len = col1.<span class="fn">slider</span>(<span class="st">"Max Summary Length"</span>, <span class="nm">50</span>, <span class="nm">300</span>, <span class="nm">130</span>)
+min_len = col2.<span class="fn">slider</span>(<span class="st">"Min Summary Length"</span>, <span class="nm">10</span>, <span class="nm">100</span>, <span class="nm">30</span>)
+
+<span class="fix-line"><span class="cm"># FIX #4: catch slider conflict before sending to API</span></span>
+<span class="fix-line"><span class="kw">if</span> min_len >= max_len:</span>
+<span class="fix-line">    st.<span class="fn">warning</span>(<span class="st">"⚠️ Min length must be less than Max length. Adjusting automatically."</span>)</span>
+<span class="fix-line">    min_len = <span class="fn">max</span>(<span class="nm">10</span>, max_len - <span class="nm">20</span>)</span>
+
+<span class="kw">if</span> st.<span class="fn">button</span>(<span class="st">"✨ Summarize"</span>, type=<span class="st">"primary"</span>):
+    <span class="kw">if not</span> text_input.strip():
+        st.<span class="fn">warning</span>(<span class="st">"⚠️ Please enter some text first."</span>)
+    <span class="kw">elif</span> <span class="fn">len</span>(text_input.split()) < <span class="nm">50</span>:
+        st.<span class="fn">warning</span>(<span class="st">"⚠️ Text too short. Please provide at least 50 words."</span>)
+    <span class="kw">else</span>:
+        <span class="kw">with</span> st.<span class="fn">spinner</span>(<span class="st">"Summarizing... (first run loads model, may take 60s)"</span>):
+            <span class="kw">try</span>:
+                response = requests.<span class="fn">post</span>(
+                    API_URL,
+                    json={<span class="st">"text"</span>: text_input, <span class="st">"max_length"</span>: max_len, <span class="st">"min_length"</span>: min_len},
+<span class="fix-line">                    timeout=<span class="nm">120</span>  <span class="cm"># FIX #6: first model load can take 60-90s</span></span>
+                )
+                <span class="kw">if</span> response.status_code == <span class="nm">200</span>:
+                    st.<span class="fn">success</span>(<span class="st">"✅ Summary generated!"</span>)
+                    st.<span class="fn">write</span>(response.<span class="fn">json</span>()[<span class="st">"summary"</span>])
+                <span class="kw">else</span>:
+                    st.<span class="fn">error</span>(<span class="fn">f</span><span class="st">"❌ API Error: {response.json().get('detail', 'Unknown error')}"</span>)
+            <span class="kw">except</span> requests.exceptions.<span class="tp">ConnectionError</span>:
+                st.<span class="fn">error</span>(<span class="st">"❌ Cannot connect to API. Is FastAPI running on port 8000?"</span>)
+            <span class="kw">except</span> requests.exceptions.<span class="tp">Timeout</span>:
+                st.<span class="fn">error</span>(<span class="st">"⏱️ Timed out. Model may still be loading — try again in 30s."</span>)
+            <span class="kw">except</span> <span class="tp">Exception</span> <span class="kw">as</span> e:
+                st.<span class="fn">error</span>(<span class="fn">f</span><span class="st">"❌ Unexpected error: {str(e)}"</span>)</pre>
+  </div>
+
+  <!-- FILE: Dockerfile -->
+  <div class="file-block">
+    <div class="file-header"><span class="file-name">Dockerfile</span><span class="file-lang">DOCKERFILE</span></div>
+    <div class="fix-badges"><span class="fix-badge">🐛 Fix #5 — COPY before chmod</span></div>
+    <pre><span class="kw">FROM</span> python:<span class="nm">3.10-slim</span>
+
+<span class="kw">WORKDIR</span> /app
+
+<span class="cm"># System dependencies (gcc needed for some torch builds)</span>
+<span class="kw">RUN</span> apt-get update && apt-get install -y \
+    gcc g++ curl \
+    && rm -rf /var/lib/apt/lists/*
+
+<span class="cm"># Install Python deps first (better layer caching)</span>
+<span class="kw">COPY</span> requirements.txt .
+<span class="kw">RUN</span> pip install --no-cache-dir -r requirements.txt
+
+<span class="cm"># Copy all source code</span>
+<span class="kw">COPY</span> . .
+
+<span class="fix-line"><span class="cm"># FIX #5: COPY must come before RUN chmod — previous version had wrong order</span></span>
+<span class="fix-line"><span class="kw">RUN</span> chmod +x start.sh</span>
+
+<span class="kw">EXPOSE</span> <span class="nm">8000 8501</span>
+
+<span class="kw">CMD</span> [<span class="st">"./start.sh"</span>]</pre>
+  </div>
+
+  <!-- FILE: start.sh -->
+  <div class="file-block">
+    <div class="file-header"><span class="file-name">start.sh</span><span class="file-lang">BASH</span></div>
+    <div class="fix-badges">
+      <span class="fix-badge">🐛 Fix #9 — health-check wait loop</span>
+      <span class="fix-badge">🐛 Fix #10 — --server.headless true</span>
+    </div>
+    <pre><span class="cm">#!/bin/bash</span>
+set -e
+
+echo <span class="st">"Starting FastAPI backend..."</span>
+uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+
+<span class="fix-line"><span class="cm"># FIX #9: wait until FastAPI is actually responding before starting Streamlit</span></span>
+<span class="fix-line">echo <span class="st">"Waiting for FastAPI to be ready..."</span></span>
+<span class="fix-line">until curl -sf http://localhost:8000/ > /dev/null; do</span>
+<span class="fix-line">  sleep 1</span>
+<span class="fix-line">done</span>
+<span class="fix-line">echo <span class="st">"FastAPI is up!"</span></span>
+
+echo <span class="st">"Starting Streamlit frontend..."</span>
+streamlit run streamlit_app.py \
+  --server.port 8501 \
+  --server.address 0.0.0.0 \
+<span class="fix-line">  --server.headless true \     <span class="cm"># FIX #10: skips email prompt; required in Docker</span></span>
+  --server.fileWatcherType none</pre>
+  </div>
+
+  <!-- DOCKER RUN WITH ENV VAR -->
+  <div class="file-block">
+    <div class="file-header"><span class="file-name">How to run (local + Docker)</span><span class="file-lang">BASH</span></div>
+    <pre><span class="cm">## LOCAL (two terminals)</span>
+uvicorn app.main:app --reload           <span class="cm"># terminal 1</span>
+streamlit run streamlit_app.py          <span class="cm"># terminal 2</span>
+
+<span class="cm">## DOCKER — pass API_URL so Streamlit finds FastAPI inside container</span>
+docker build -t text-summarizer .
+docker run -p 8000:8000 -p 8501:8501 \
+<span class="fix-line">  -e API_URL=http://localhost:8000 \    <span class="cm"># FIX #7: set env var</span></span>
+  text-summarizer
+
+<span class="cm">## AWS App Runner — set this env var in App Runner service config:</span>
+<span class="cm">## API_URL = http://localhost:8000</span></pre>
+  </div>
+
+  <div class="info-box tip">
+    <span>💡 <strong>Pro tip:</strong> On first Docker run, the BART model (~1.6 GB) downloads automatically. This takes 2–5 minutes. Subsequent runs are instant because Docker layer-caches it.</span>
+  </div>
+  <div class="info-box warn">
+    <span>⚠️ <strong>Memory:</strong> BART requires at least <strong>4 GB RAM</strong>. In AWS App Runner, set instance size to at least <code>2 vCPU / 4 GB</code>.</span>
+  </div>
+  <div class="info-box note">
+    <span>ℹ️ <strong>Test the API directly:</strong> Visit <code>http://localhost:8000/docs</code> for the auto-generated FastAPI Swagger UI where you can test the <code>/summarize</code> endpoint without Streamlit.</span>
+  </div>
+
+</div>
+</body>
+</html>
