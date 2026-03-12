@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ML Pipeline Guide — Text Summarization</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --accent: #7c3aed;
+    --accent2: #06b6d4;
+    --accent3: #f59e0b;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --code-bg: #0d0d14;
+    --green: #10b981;
+    --red: #ef4444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    line-height: 1.6;
+  }
+
+  /* HEADER */
+  header {
+    background: linear-gradient(135deg, #0a0a0f 0%, #1a0a2e 50%, #0a1a2e 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 60px 40px 50px;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 20% 50%, rgba(124,58,237,0.15) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.1) 0%, transparent 50%);
+  }
+  .header-inner { max-width: 900px; margin: 0 auto; position: relative; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.4);
+    color: #a78bfa; padding: 4px 14px; border-radius: 20px;
+    font-size: 12px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.1em;
+    margin-bottom: 20px;
+  }
+  h1 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; line-height: 1.1; margin-bottom: 16px; }
+  h1 span { background: linear-gradient(135deg, #7c3aed, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { color: var(--muted); font-size: 1.1rem; max-width: 600px; }
+  .tech-stack { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+  .tech-pill {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 6px 14px; border-radius: 6px; font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .tech-pill.purple { border-color: rgba(124,58,237,0.5); color: #a78bfa; }
+  .tech-pill.cyan { border-color: rgba(6,182,212,0.5); color: #67e8f9; }
+  .tech-pill.amber { border-color: rgba(245,158,11,0.5); color: #fcd34d; }
+  .tech-pill.green { border-color: rgba(16,185,129,0.5); color: #6ee7b7; }
+
+  /* LAYOUT */
+  .container { max-width: 900px; margin: 0 auto; padding: 40px 40px 80px; }
+
+  /* STEP */
+  .step {
+    margin-bottom: 50px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .step-header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(90deg, rgba(124,58,237,0.05) 0%, transparent 100%);
+  }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; flex-shrink: 0;
+  }
+  .step-title { font-size: 1.2rem; font-weight: 700; }
+  .step-sub { font-size: 13px; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+  .step-body { padding: 24px; }
+
+  /* CODE BLOCK */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 16px 0;
+    overflow: hidden;
+  }
+  .code-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+  .code-lang { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--muted); letter-spacing: 0.05em; }
+  .code-filename { font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--accent2); }
+  pre {
+    padding: 20px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #cdd6f4;
+  }
+  .cm { color: #6c7086; }        /* comment */
+  .kw { color: #cba6f7; }        /* keyword */
+  .fn { color: #89b4fa; }        /* function */
+  .st { color: #a6e3a1; }        /* string */
+  .nm { color: #fab387; }        /* number/const */
+  .tp { color: #f38ba8; }        /* type */
+
+  /* INFO BOXES */
+  .info-box {
+    border-radius: 8px; padding: 16px 20px; margin: 16px 0;
+    display: flex; gap: 12px; align-items: flex-start;
+    font-size: 14px;
+  }
+  .info-box.tip { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); color: #6ee7b7; }
+  .info-box.warn { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); color: #fcd34d; }
+  .info-box.note { background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.2); color: #67e8f9; }
+  .info-box-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  /* FILE TREE */
+  .file-tree {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 2;
+  }
+  .ft-dir { color: #89b4fa; font-weight: 700; }
+  .ft-file { color: #cdd6f4; }
+  .ft-py { color: #a6e3a1; }
+  .ft-yml { color: #f9e2af; }
+  .ft-docker { color: #89dceb; }
+  .ft-req { color: #cba6f7; }
+  .ft-muted { color: var(--muted); }
+
+  /* FLOW DIAGRAM */
+  .flow {
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: 8px; margin: 20px 0;
+  }
+  .flow-step {
+    background: var(--code-bg); border: 1px solid var(--border);
+    padding: 10px 16px; border-radius: 8px; font-size: 13px;
+    font-family: 'JetBrains Mono', monospace; text-align: center;
+  }
+  .flow-step.active { border-color: var(--accent); color: #a78bfa; }
+  .flow-arrow { color: var(--muted); font-size: 18px; }
+
+  p { margin-bottom: 12px; color: #94a3b8; font-size: 15px; }
+  ul { padding-left: 20px; margin: 10px 0 16px; }
+  li { color: #94a3b8; font-size: 14px; margin-bottom: 6px; }
+  strong { color: var(--text); }
+
+  h3 { font-size: 1rem; font-weight: 600; color: var(--accent2); margin: 20px 0 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* SECTION DIVIDER */
+  .divider {
+    text-align: center; padding: 30px 0 10px; color: var(--muted);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.2em;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="badge">🚀 Full ML Pipeline</div>
+    <h1>Text Summarization<br><span>End-to-End Guide</span></h1>
+    <p class="subtitle">From local VS Code setup → Docker container → GitHub → AWS ECR + App Runner</p>
+    <div class="tech-stack">
+      <span class="tech-pill purple">Streamlit</span>
+      <span class="tech-pill cyan">FastAPI</span>
+      <span class="tech-pill amber">Docker</span>
+      <span class="tech-pill green">AWS</span>
+      <span class="tech-pill purple">HuggingFace</span>
+      <span class="tech-pill cyan">GitHub</span>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- PIPELINE OVERVIEW -->
+  <div class="divider">── PIPELINE OVERVIEW ──</div>
+  <div class="flow">
+    <div class="flow-step active">1. Local Setup</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step active">2. Build App</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step active">3. Dockerize</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step active">4. Push GitHub</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step active">5. Push AWS ECR</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step active">6. Deploy</div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">1</div>
+      <div>
+        <div class="step-title">Local Project Setup in VS Code</div>
+        <div class="step-sub">Create folder structure · virtual env · install dependencies</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>Open VS Code terminal and run these commands to scaffold the project:</p>
+
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">BASH</span><span class="code-filename">terminal</span></div>
+        <pre><span class="cm"># Create project folder</span>
+mkdir text-summarizer && cd text-summarizer
+
+<span class="cm"># Create virtual environment</span>
+python -m venv venv
+
+<span class="cm"># Activate it</span>
+<span class="cm"># Windows:</span>
+venv\Scripts\activate
+<span class="cm"># Mac/Linux:</span>
+source venv/bin/activate
+
+<span class="cm"># Create folder structure</span>
+mkdir app
+touch app/main.py app/summarizer.py
+touch streamlit_app.py requirements.txt Dockerfile .dockerignore .gitignore README.md</pre>
+      </div>
+
+      <p>Your project structure should look like this:</p>
+      <div class="file-tree">
+        <div><span class="ft-dir">📁 text-summarizer/</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-dir">📁 app/</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-py">🐍 main.py</span> <span class="ft-muted">← FastAPI backend</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-py">🐍 summarizer.py</span> <span class="ft-muted">← ML model logic</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-py">🐍 streamlit_app.py</span> <span class="ft-muted">← Streamlit frontend</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-req">📄 requirements.txt</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-docker">🐳 Dockerfile</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-docker">📄 .dockerignore</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-yml">📄 .gitignore</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-yml">📄 README.md</span></div>
+      </div>
+
+      <div class="info-box tip">
+        <span class="info-box-icon">💡</span>
+        <span><strong>VS Code Extension:</strong> Install the <strong>Python</strong>, <strong>Docker</strong>, and <strong>GitLens</strong> extensions for the best experience.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">2</div>
+      <div>
+        <div class="step-title">Write the Application Code</div>
+        <div class="step-sub">requirements.txt · summarizer.py · FastAPI · Streamlit</div>
+      </div>
+    </div>
+    <div class="step-body">
+
+      <h3>requirements.txt</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">TEXT</span><span class="code-filename">requirements.txt</span></div>
+        <pre>fastapi==0.111.0
+uvicorn==0.29.0
+transformers==4.40.0
+torch==2.2.2
+sentencepiece==0.2.0
+streamlit==1.35.0
+requests==2.31.0
+pydantic==2.7.1</pre>
+      </div>
+
+      <h3>summarizer.py — ML Model Logic</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">PYTHON</span><span class="code-filename">app/summarizer.py</span></div>
+        <pre><span class="kw">from</span> transformers <span class="kw">import</span> pipeline
+
+<span class="cm"># Load model once at startup (facebook/bart-large-cnn)</span>
+summarizer = <span class="fn">pipeline</span>(
+    <span class="st">"summarization"</span>,
+    model=<span class="st">"facebook/bart-large-cnn"</span>
+)
+
+<span class="kw">def</span> <span class="fn">summarize_text</span>(text: <span class="tp">str</span>, max_length: <span class="tp">int</span> = <span class="nm">130</span>, min_length: <span class="tp">int</span> = <span class="nm">30</span>) -> <span class="tp">str</span>:
+    <span class="st">"""Summarize input text using BART model."""</span>
+    <span class="kw">if</span> <span class="fn">len</span>(text.split()) < <span class="nm">50</span>:
+        <span class="kw">raise</span> <span class="tp">ValueError</span>(<span class="st">"Text too short. Provide at least 50 words."</span>)
+
+    result = <span class="fn">summarizer</span>(
+        text,
+        max_length=max_length,
+        min_length=min_length,
+        do_sample=<span class="nm">False</span>
+    )
+    <span class="kw">return</span> result[<span class="nm">0</span>][<span class="st">"summary_text"</span>]</pre>
+      </div>
+
+      <h3>main.py — FastAPI Backend</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">PYTHON</span><span class="code-filename">app/main.py</span></div>
+        <pre><span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI, HTTPException
+<span class="kw">from</span> pydantic <span class="kw">import</span> BaseModel
+<span class="kw">from</span> app.summarizer <span class="kw">import</span> summarize_text
+
+app = <span class="fn">FastAPI</span>(title=<span class="st">"Text Summarizer API"</span>, version=<span class="st">"1.0"</span>)
+
+<span class="kw">class</span> <span class="tp">SummarizeRequest</span>(BaseModel):
+    text: <span class="tp">str</span>
+    max_length: <span class="tp">int</span> = <span class="nm">130</span>
+    min_length: <span class="tp">int</span> = <span class="nm">30</span>
+
+<span class="kw">class</span> <span class="tp">SummarizeResponse</span>(BaseModel):
+    summary: <span class="tp">str</span>
+
+<span class="nm">@app</span>.get(<span class="st">"/"</span>)
+<span class="kw">def</span> <span class="fn">health_check</span>():
+    <span class="kw">return</span> {<span class="st">"status"</span>: <span class="st">"running"</span>}
+
+<span class="nm">@app</span>.post(<span class="st">"/summarize"</span>, response_model=<span class="tp">SummarizeResponse</span>)
+<span class="kw">def</span> <span class="fn">summarize</span>(request: <span class="tp">SummarizeRequest</span>):
+    <span class="kw">try</span>:
+        summary = <span class="fn">summarize_text</span>(
+            request.text, request.max_length, request.min_length
+        )
+        <span class="kw">return</span> <span class="tp">SummarizeResponse</span>(summary=summary)
+    <span class="kw">except</span> <span class="tp">ValueError</span> <span class="kw">as</span> e:
+        <span class="kw">raise</span> <span class="fn">HTTPException</span>(status_code=<span class="nm">400</span>, detail=<span class="fn">str</span>(e))</pre>
+      </div>
+
+      <h3>streamlit_app.py — Frontend UI</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">PYTHON</span><span class="code-filename">streamlit_app.py</span></div>
+        <pre><span class="kw">import</span> streamlit <span class="kw">as</span> st
+<span class="kw">import</span> requests
+
+st.<span class="fn">set_page_config</span>(page_title=<span class="st">"Text Summarizer"</span>, page_icon=<span class="st">"📝"</span>)
+st.<span class="fn">title</span>(<span class="st">"📝 AI Text Summarizer"</span>)
+st.<span class="fn">markdown</span>(<span class="st">"Paste any long text and get a concise AI summary."</span>)
+
+API_URL = <span class="st">"http://localhost:8000/summarize"</span>  <span class="cm"># points to FastAPI</span>
+
+text_input = st.<span class="fn">text_area</span>(<span class="st">"Input Text"</span>, height=<span class="nm">250</span>,
+    placeholder=<span class="st">"Paste a long article or paragraph here..."</span>)
+
+col1, col2 = st.<span class="fn">columns</span>(<span class="nm">2</span>)
+max_len = col1.<span class="fn">slider</span>(<span class="st">"Max Summary Length"</span>, <span class="nm">50</span>, <span class="nm">300</span>, <span class="nm">130</span>)
+min_len = col2.<span class="fn">slider</span>(<span class="st">"Min Summary Length"</span>, <span class="nm">10</span>, <span class="nm">100</span>, <span class="nm">30</span>)
+
+<span class="kw">if</span> st.<span class="fn">button</span>(<span class="st">"✨ Summarize"</span>, type=<span class="st">"primary"</span>):
+    <span class="kw">if</span> text_input.strip():
+        <span class="kw">with</span> st.<span class="fn">spinner</span>(<span class="st">"Summarizing..."</span>):
+            response = requests.<span class="fn">post</span>(API_URL, json={
+                <span class="st">"text"</span>: text_input,
+                <span class="st">"max_length"</span>: max_len,
+                <span class="st">"min_length"</span>: min_len
+            })
+        <span class="kw">if</span> response.status_code == <span class="nm">200</span>:
+            st.<span class="fn">success</span>(<span class="st">"Summary"</span>)
+            st.<span class="fn">write</span>(response.json()[<span class="st">"summary"</span>])
+        <span class="kw">else</span>:
+            st.<span class="fn">error</span>(response.json()[<span class="st">"detail"</span>])
+    <span class="kw">else</span>:
+        st.<span class="fn">warning</span>(<span class="st">"Please enter some text first."</span>)</pre>
+      </div>
+
+      <div class="info-box note">
+        <span class="info-box-icon">🔬</span>
+        <span><strong>Test locally:</strong> Run <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;">uvicorn app.main:app --reload</code> in one terminal, then <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;">streamlit run streamlit_app.py</code> in another.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">3</div>
+      <div>
+        <div class="step-title">Containerize with Docker</div>
+        <div class="step-sub">Dockerfile · .dockerignore · build · run locally</div>
+      </div>
+    </div>
+    <div class="step-body">
+
+      <h3>Dockerfile</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">DOCKERFILE</span><span class="code-filename">Dockerfile</span></div>
+        <pre><span class="cm"># Use official Python slim image</span>
+<span class="kw">FROM</span> python:<span class="nm">3.10-slim</span>
+
+<span class="cm"># Set working directory</span>
+<span class="kw">WORKDIR</span> /app
+
+<span class="cm"># Copy and install dependencies</span>
+<span class="kw">COPY</span> requirements.txt .
+<span class="kw">RUN</span> pip install --no-cache-dir -r requirements.txt
+
+<span class="cm"># Copy all source code</span>
+<span class="kw">COPY</span> . .
+
+<span class="cm"># Expose ports: 8000 = FastAPI, 8501 = Streamlit</span>
+<span class="kw">EXPOSE</span> <span class="nm">8000</span> <span class="nm">8501</span>
+
+<span class="cm"># Start both services using a shell script</span>
+<span class="kw">COPY</span> start.sh .
+<span class="kw">RUN</span> chmod +x start.sh
+<span class="kw">CMD</span> [<span class="st">"./start.sh"</span>]</pre>
+      </div>
+
+      <h3>start.sh — Launch Both Services</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">BASH</span><span class="code-filename">start.sh</span></div>
+        <pre><span class="cm">#!/bin/bash</span>
+<span class="cm"># Start FastAPI in background</span>
+uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+
+<span class="cm"># Start Streamlit in foreground</span>
+streamlit run streamlit_app.py --server.port 8501 --server.address 0.0.0.0</pre>
+      </div>
+
+      <h3>.dockerignore</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">TEXT</span><span class="code-filename">.dockerignore</span></div>
+        <pre>venv/
+__pycache__/
+*.pyc
+.git/
+.env
+*.egg-info/</pre>
+      </div>
+
+      <h3>Build & Run Docker Locally</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">BASH</span><span class="code-filename">terminal</span></div>
+        <pre><span class="cm"># Build the Docker image</span>
+docker build -t text-summarizer:latest .
+
+<span class="cm"># Run it locally to test</span>
+docker run -p 8000:8000 -p 8501:8501 text-summarizer:latest
+
+<span class="cm"># Visit: http://localhost:8501 (Streamlit UI)</span>
+<span class="cm"># Visit: http://localhost:8000/docs (FastAPI Swagger)</span></pre>
+      </div>
+
+      <div class="info-box tip">
+        <span class="info-box-icon">✅</span>
+        <span>Make sure Docker Desktop is running before executing these commands. First build will take a few minutes to download the BART model.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">4</div>
+      <div>
+        <div class="step-title">Push Code to GitHub</div>
+        <div class="step-sub">git init · .gitignore · commit · push</div>
+      </div>
+    </div>
+    <div class="step-body">
+
+      <h3>.gitignore</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">TEXT</span><span class="code-filename">.gitignore</span></div>
+        <pre>venv/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+*.egg-info/
+dist/
+.idea/</pre>
+      </div>
+
+      <h3>Initialize Git & Push</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">BASH</span><span class="code-filename">terminal</span></div>
+        <pre><span class="cm"># Step 1: Initialize git repo</span>
+git init
+
+<span class="cm"># Step 2: Stage all files</span>
+git add .
+
+<span class="cm"># Step 3: First commit</span>
+git commit -m "feat: initial text summarizer project"
+
+<span class="cm"># Step 4: Create repo on GitHub (via website), then:</span>
+git remote add origin https://github.com/YOUR_USERNAME/text-summarizer.git
+
+<span class="cm"># Step 5: Push to GitHub</span>
+git branch -M main
+git push -u origin main</pre>
+      </div>
+
+      <div class="info-box warn">
+        <span class="info-box-icon">⚠️</span>
+        <span><strong>Never commit secrets!</strong> If you add AWS keys or API tokens, always store them in a <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;">.env</code> file that's listed in <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;">.gitignore</code>.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 5 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">5</div>
+      <div>
+        <div class="step-title">Push Docker Image to AWS ECR</div>
+        <div class="step-sub">AWS CLI · create ECR repo · tag · push</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>AWS ECR (Elastic Container Registry) is the private Docker registry on AWS. You'll push your image there so AWS can deploy it.</p>
+
+      <h3>Prerequisites</h3>
+      <ul>
+        <li>Install <strong>AWS CLI</strong>: <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;">brew install awscli</code> or download from aws.amazon.com</li>
+        <li>Run <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;">aws configure</code> and enter your Access Key ID, Secret Key, region (<strong>us-east-1</strong>)</li>
+      </ul>
+
+      <h3>Create ECR Repository & Push</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">BASH</span><span class="code-filename">terminal</span></div>
+        <pre><span class="cm"># Set your AWS account ID and region</span>
+<span class="kw">export</span> AWS_ACCOUNT_ID=<span class="st">123456789012</span>   <span class="cm"># replace with yours</span>
+<span class="kw">export</span> AWS_REGION=<span class="st">us-east-1</span>
+<span class="kw">export</span> REPO_NAME=<span class="st">text-summarizer</span>
+
+<span class="cm"># Step 1: Create ECR repository</span>
+aws ecr create-repository \
+  --repository-name $REPO_NAME \
+  --region $AWS_REGION
+
+<span class="cm"># Step 2: Authenticate Docker to ECR</span>
+aws ecr get-login-password --region $AWS_REGION | \
+  docker login --username AWS \
+  --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+<span class="cm"># Step 3: Tag your local image</span>
+docker tag text-summarizer:latest \
+  $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO_NAME:latest
+
+<span class="cm"># Step 4: Push to ECR</span>
+docker push \
+  $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO_NAME:latest</pre>
+      </div>
+
+      <div class="info-box note">
+        <span class="info-box-icon">ℹ️</span>
+        <span>After pushing, go to <strong>AWS Console → ECR</strong> and you'll see your image listed under the repository.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 6 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">6</div>
+      <div>
+        <div class="step-title">Deploy on AWS App Runner</div>
+        <div class="step-sub">Create service · configure ports · live URL</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>AWS App Runner is the simplest way to deploy a containerized app — no EC2 or Kubernetes needed.</p>
+
+      <h3>Deploy via AWS CLI</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">BASH</span><span class="code-filename">terminal</span></div>
+        <pre><span class="cm"># Create App Runner service</span>
+aws apprunner create-service \
+  --service-name text-summarizer-service \
+  --source-configuration '{
+    "ImageRepository": {
+      "ImageIdentifier": "'$AWS_ACCOUNT_ID'.dkr.ecr.'$AWS_REGION'.amazonaws.com/text-summarizer:latest",
+      "ImageRepositoryType": "ECR",
+      "ImageConfiguration": {
+        "Port": "8501"
+      }
+    },
+    "AutoDeploymentsEnabled": true,
+    "AuthenticationConfiguration": {
+      "AccessRoleArn": "arn:aws:iam::'$AWS_ACCOUNT_ID':role/AppRunnerECRAccessRole"
+    }
+  }' \
+  --instance-configuration '{"Cpu": "1 vCPU", "Memory": "2 GB"}' \
+  --region $AWS_REGION</pre>
+      </div>
+
+      <h3>Or use the AWS Console (Easier)</h3>
+      <ul>
+        <li>Go to <strong>AWS Console → App Runner → Create Service</strong></li>
+        <li>Source: <strong>Container registry → Amazon ECR</strong></li>
+        <li>Select your <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;">text-summarizer:latest</code> image</li>
+        <li>Port: <strong>8501</strong> (Streamlit)</li>
+        <li>CPU: 1 vCPU, Memory: 2 GB</li>
+        <li>Click <strong>Create & Deploy</strong></li>
+        <li>In ~3 minutes you'll have a live <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;">https://xxx.awsapprunner.com</code> URL</li>
+      </ul>
+
+      <div class="info-box tip">
+        <span class="info-box-icon">🎯</span>
+        <span><strong>Auto-deploy:</strong> Enable <strong>Automatic deployments</strong> in App Runner — every time you push a new image to ECR, it will redeploy automatically!</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 7 BONUS -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">★</div>
+      <div>
+        <div class="step-title">Bonus: GitHub Actions CI/CD</div>
+        <div class="step-sub">Auto-build and push to ECR on every git push</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <p>Set up a workflow so every push to <code style="font-family:monospace;background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;">main</code> automatically builds and pushes your Docker image to ECR.</p>
+
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">YAML</span><span class="code-filename">.github/workflows/deploy.yml</span></div>
+        <pre><span class="nm">name</span>: <span class="st">Deploy to AWS ECR</span>
+
+<span class="nm">on</span>:
+  <span class="nm">push</span>:
+    <span class="nm">branches</span>: [<span class="st">main</span>]
+
+<span class="nm">jobs</span>:
+  <span class="nm">build-and-push</span>:
+    <span class="nm">runs-on</span>: <span class="st">ubuntu-latest</span>
+    <span class="nm">steps</span>:
+      - <span class="nm">uses</span>: <span class="st">actions/checkout@v3</span>
+
+      - <span class="nm">name</span>: <span class="st">Configure AWS Credentials</span>
+        <span class="nm">uses</span>: <span class="st">aws-actions/configure-aws-credentials@v2</span>
+        <span class="nm">with</span>:
+          <span class="nm">aws-access-key-id</span>: <span class="st">${{ secrets.AWS_ACCESS_KEY_ID }}</span>
+          <span class="nm">aws-secret-access-key</span>: <span class="st">${{ secrets.AWS_SECRET_ACCESS_KEY }}</span>
+          <span class="nm">aws-region</span>: <span class="st">us-east-1</span>
+
+      - <span class="nm">name</span>: <span class="st">Login to ECR</span>
+        <span class="nm">uses</span>: <span class="st">aws-actions/amazon-ecr-login@v1</span>
+
+      - <span class="nm">name</span>: <span class="st">Build, Tag & Push</span>
+        <span class="nm">run</span>: |
+          docker build -t text-summarizer .
+          docker tag text-summarizer:latest \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/text-summarizer:latest
+          docker push \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/text-summarizer:latest</pre>
+      </div>
+
+      <div class="info-box warn">
+        <span class="info-box-icon">🔐</span>
+        <span>Add <strong>AWS_ACCESS_KEY_ID</strong>, <strong>AWS_SECRET_ACCESS_KEY</strong>, and <strong>AWS_ACCOUNT_ID</strong> as secrets in your GitHub repo under <strong>Settings → Secrets → Actions</strong>.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUICK REFERENCE -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">📋</div>
+      <div>
+        <div class="step-title">Quick Reference Cheatsheet</div>
+        <div class="step-sub">All key commands in one place</div>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">BASH</span><span class="code-filename">cheatsheet</span></div>
+        <pre><span class="cm">## LOCAL DEV</span>
+uvicorn app.main:app --reload           <span class="cm"># run FastAPI</span>
+streamlit run streamlit_app.py          <span class="cm"># run Streamlit</span>
+
+<span class="cm">## DOCKER</span>
+docker build -t text-summarizer .       <span class="cm"># build image</span>
+docker run -p 8000:8000 -p 8501:8501 text-summarizer  <span class="cm"># run</span>
+docker ps                               <span class="cm"># list containers</span>
+docker images                           <span class="cm"># list images</span>
+
+<span class="cm">## GIT</span>
+git add . && git commit -m "message"    <span class="cm"># stage & commit</span>
+git push origin main                    <span class="cm"># push to GitHub</span>
+
+<span class="cm">## AWS ECR</span>
+aws ecr describe-repositories          <span class="cm"># list ECR repos</span>
+aws apprunner list-services             <span class="cm"># list App Runner services</span></pre>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
